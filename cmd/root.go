@@ -5,12 +5,13 @@ import (
 
 	"github.com/CarlosGMI/Playlistify/cmd/auth"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "Playlistify",
-	Short: "A brief description of your application",
+	Use:   "playlistify",
+	Short: "CLI application to look for a song or artist inside a specific Spotify playlist",
 	Long:  ``,
 }
 
@@ -25,10 +26,20 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	addCommands()
+	initConfig()
+	initCommands()
 }
 
-func addCommands() {
+func initConfig() {
+	viper.AddConfigPath("$HOME")
+	viper.SetConfigName(".playlistify")
+	viper.SetConfigType("json")
+
+	_ = viper.SafeWriteConfig()
+	_ = viper.ReadInConfig()
+}
+
+func initCommands() {
 	// Auth commands
 	rootCmd.AddCommand(auth.LoginCommand())
 	rootCmd.AddCommand(auth.LogoutCommand())
