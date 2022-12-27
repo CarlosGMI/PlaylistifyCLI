@@ -25,7 +25,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	initFlags()
 	initConfig()
 	initCommands()
 }
@@ -43,4 +43,8 @@ func initCommands() {
 	// Auth commands
 	rootCmd.AddCommand(auth.LoginCommand())
 	rootCmd.AddCommand(auth.LogoutCommand())
+}
+
+func initFlags() {
+	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
