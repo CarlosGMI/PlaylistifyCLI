@@ -1,8 +1,7 @@
-package auth
+package account
 
 import (
-	"fmt"
-
+	auth "github.com/CarlosGMI/Playlistify/services"
 	"github.com/spf13/cobra"
 )
 
@@ -11,8 +10,10 @@ func LoginCommand() *cobra.Command {
 		Use:   "login",
 		Short: "A brief description of your command",
 		Long:  ``,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("login called")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			auth.Authenticate()
+
+			return nil
 		},
 	}
 

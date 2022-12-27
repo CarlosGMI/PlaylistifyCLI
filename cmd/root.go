@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/CarlosGMI/Playlistify/cmd/auth"
+	"github.com/CarlosGMI/Playlistify/cmd/account"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -41,8 +41,8 @@ func initConfig() {
 
 func initCommands() {
 	// Auth commands
-	rootCmd.AddCommand(auth.LoginCommand())
-	rootCmd.AddCommand(auth.LogoutCommand())
+	rootCmd.AddCommand(account.LoginCommand())
+	rootCmd.AddCommand(account.LogoutCommand())
 }
 
 func initFlags() {
