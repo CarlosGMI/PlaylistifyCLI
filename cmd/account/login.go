@@ -11,7 +11,9 @@ func LoginCommand() *cobra.Command {
 		Short: "A brief description of your command",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			auth.Authenticate()
+			if err := auth.Authenticate(); err != nil {
+				return err
+			}
 
 			return nil
 		},
