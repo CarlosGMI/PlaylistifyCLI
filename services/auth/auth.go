@@ -112,7 +112,7 @@ func buildAuthURI(pkceChallenge string, state string) string {
 		"show_dialog":           {"false"},
 	}
 
-	return utils.SpotifyAPIBaseURL + "/authorize?" + queryParams.Encode()
+	return utils.SpotifyAccountBaseURL + "/authorize?" + queryParams.Encode()
 }
 
 func listenForSpotifyAuthorization(state string) authorizationValues {
@@ -165,7 +165,7 @@ func requestSpotifyToken(code string, pkceVerifier string) (*token, error) {
 		"code_verifier": {pkceVerifier},
 	}
 
-	response, err := http.PostForm(utils.SpotifyAPIBaseURL+"/api/token", data)
+	response, err := http.PostForm(utils.SpotifyAccountBaseURL+"/api/token", data)
 
 	if err != nil {
 		return nil, err

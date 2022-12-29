@@ -7,7 +7,8 @@ const (
 	NotAuthorizedError   = "you are not authorized"
 	// General
 	ClientId                      = "c4ab33f93b55422bb1cf39494023da7d"
-	SpotifyAPIBaseURL             = "https://accounts.spotify.com"
+	SpotifyAccountBaseURL         = "https://accounts.spotify.com"
+	SpotifyAPIBaseURL             = "https://api.spotify.com/v1"
 	AuthorizationBaseURL          = "http://localhost"
 	AuthorizationPort             = ":1024"
 	AuthorizationCallbackEndpoint = "/callback"
