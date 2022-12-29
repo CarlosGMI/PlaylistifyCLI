@@ -1,7 +1,7 @@
 package account
 
 import (
-	auth "github.com/CarlosGMI/Playlistify/services"
+	"github.com/CarlosGMI/Playlistify/services/auth"
 	"github.com/spf13/cobra"
 )
 
