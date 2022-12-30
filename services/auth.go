@@ -31,7 +31,13 @@ type token struct {
 
 func Authenticate() error {
 	if err := IsAuthenticated(); err == nil {
-		return errors.New(utils.AlreadyLoggedInError)
+		user, err := GetAccountInformation()
+
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf(utils.AlreadyLoggedInError, user.DisplayName, user.Email)
 	}
 
 	if err := login(); err != nil {
@@ -69,6 +75,8 @@ func login() error {
 		return authorizationValues.err
 	}
 
+	fmt.Println("Authenticating...")
+
 	token, err := requestSpotifyToken(authorizationValues.code, pkceVerifier)
 
 	if err != nil {
@@ -76,7 +84,13 @@ func login() error {
 	}
 
 	storeTokenInformation(token)
-	GetAccountInformation()
+	user, err := GetAccountInformation()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully logged in as %s (%s)\n", user.DisplayName, user.Email)
 
 	return nil
 }
@@ -184,4 +198,6 @@ func storeTokenInformation(token *token) {
 	viper.Set("token", token.AccessToken)
 	viper.Set("token_expiration", token.ExpiresIn)
 	viper.Set("refresh_token", token.RefreshToken)
+
+	viper.WriteConfig()
 }
