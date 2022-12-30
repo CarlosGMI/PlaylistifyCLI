@@ -1,4 +1,4 @@
-package auth
+package services
 
 import (
 	"context"
@@ -76,6 +76,7 @@ func login() error {
 	}
 
 	storeTokenInformation(token)
+	GetAccountInformation()
 
 	return nil
 }
