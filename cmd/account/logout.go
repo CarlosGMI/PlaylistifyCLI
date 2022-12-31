@@ -1,9 +1,7 @@
 package account
 
 import (
-	"fmt"
-	"time"
-
+	"github.com/CarlosGMI/Playlistify/services"
 	"github.com/spf13/cobra"
 )
 
@@ -13,8 +11,7 @@ func LogoutCommand() *cobra.Command {
 		Short: "A brief description of your command",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-			inOneHour := time.Now().Unix()
-			fmt.Println(inOneHour)
+			services.EmptyTokenInformation()
 		},
 	}
 

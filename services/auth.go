@@ -241,3 +241,11 @@ func storeTokenInformation(token *token) {
 
 	viper.WriteConfig()
 }
+
+func EmptyTokenInformation() {
+	viper.Set("token", "")
+	viper.Set("token_expiration", "")
+	viper.Set("refresh_token", "")
+
+	viper.WriteConfig()
+}
