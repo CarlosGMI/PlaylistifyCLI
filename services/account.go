@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/CarlosGMI/Playlistify/utils"
+	"github.com/spf13/viper"
 )
 
 type UserAccount struct {
@@ -21,5 +22,12 @@ func GetAccountInformation() (*UserAccount, error) {
 		return nil, err
 	}
 
+	storeAccountInformation(user)
+
 	return user, nil
+}
+
+func storeAccountInformation(user *UserAccount) {
+	viper.Set("user_id", user.Id)
+	viper.WriteConfig()
 }
