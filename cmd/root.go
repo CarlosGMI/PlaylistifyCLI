@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/CarlosGMI/Playlistify/cmd/account"
+	"github.com/CarlosGMI/Playlistify/cmd/playlist"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -43,6 +44,7 @@ func initCommands() {
 	// Auth commands
 	rootCmd.AddCommand(account.LoginCommand())
 	rootCmd.AddCommand(account.LogoutCommand())
+	rootCmd.AddCommand(playlist.ListCommand())
 }
 
 func initFlags() {
