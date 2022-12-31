@@ -7,6 +7,7 @@ import (
 )
 
 type UserAccount struct {
+	Id          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
 }
