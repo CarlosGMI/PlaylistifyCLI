@@ -49,13 +49,19 @@ func Authenticate() error {
 
 func IsAuthenticated() error {
 	token := viper.GetString("token")
+	expiration := viper.GetInt64("token_expiration")
 
 	if token == "" {
 		return errors.New(utils.NotLoggedInError)
 	}
 
-	// Token exists -> check if token has expired
-	// If expired, refresh token here. If not, return nil
+	if time.Now().Unix() > expiration {
+		if err := refreshAuthorization(); err != nil {
+			return err
+		}
+
+		return nil
+	}
 
 	return nil
 }
@@ -194,9 +200,43 @@ func requestSpotifyToken(code string, pkceVerifier string) (*token, error) {
 	return token, err
 }
 
+func refreshAuthorization() error {
+	fmt.Println("Your access token has expired, refreshing token...")
+	token, err := requestSpotifyRefreshToken()
+
+	if err != nil {
+		return err
+	}
+
+	storeTokenInformation(token)
+
+	return nil
+}
+
+func requestSpotifyRefreshToken() (*token, error) {
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {viper.GetString("refresh_token")},
+		"client_id":     {utils.ClientId},
+	}
+
+	response, err := http.PostForm(utils.SpotifyAccountBaseURL+"/api/token", data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	token := new(token)
+	err = json.NewDecoder(response.Body).Decode(token)
+
+	return token, err
+}
+
 func storeTokenInformation(token *token) {
 	viper.Set("token", token.AccessToken)
-	viper.Set("token_expiration", token.ExpiresIn)
+	viper.Set("token_expiration", time.Now().Unix()+int64(token.ExpiresIn))
 	viper.Set("refresh_token", token.RefreshToken)
 
 	viper.WriteConfig()

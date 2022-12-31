@@ -2,6 +2,7 @@ package account
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +13,8 @@ func LogoutCommand() *cobra.Command {
 		Short: "A brief description of your command",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("logout called")
+			inOneHour := time.Now().Unix()
+			fmt.Println(inOneHour)
 		},
 	}
 

@@ -12,10 +12,6 @@ type UserAccount struct {
 }
 
 func GetAccountInformation() (*UserAccount, error) {
-	if err := IsAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	var user = new(UserAccount)
 	var url = utils.SpotifyAPIBaseURL + "/me"
 	err := MakeRequest(http.MethodGet, url, nil, user)

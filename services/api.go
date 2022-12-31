@@ -2,20 +2,24 @@ package services
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/spf13/viper"
 )
 
-type spotifyError struct {
+type spotifyErrorData struct {
 	Message string `json:"message"`
-	Status  string `json:"status"`
+	Status  int    `json:"status"`
+}
+
+type spotifyError struct {
+	Error spotifyErrorData `json:"error"`
 }
 
 func MakeRequest(method string, url string, body io.Reader, resultFormat interface{}) error {
-	var spotifyErrorFormat = new(spotifyError)
+	var errorResults = new(spotifyError)
 	client := &http.Client{}
 	request, error := http.NewRequest(method, url, body)
 	request.Close = true
@@ -44,9 +48,9 @@ func MakeRequest(method string, url string, body io.Reader, resultFormat interfa
 		return nil
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(spotifyErrorFormat); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(errorResults); err != nil {
 		return err
 	}
 
-	return errors.New("An error has occurred: " + spotifyErrorFormat.Message + "(" + spotifyErrorFormat.Status + ")")
+	return fmt.Errorf("%s (%v)", errorResults.Error.Message, errorResults.Error.Status)
 }
