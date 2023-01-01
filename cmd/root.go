@@ -45,6 +45,7 @@ func initCommands() {
 	rootCmd.AddCommand(account.LoginCommand())
 	rootCmd.AddCommand(account.LogoutCommand())
 	rootCmd.AddCommand(playlist.ListCommand())
+	rootCmd.AddCommand(playlist.SearchCommand())
 }
 
 func initFlags() {
