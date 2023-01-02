@@ -61,7 +61,7 @@ type playlistTracks struct {
 func GetPlaylists() error {
 	var playlists []playlist
 	var query = url.Values{
-		"limit": {string(utils.TracksLimit)},
+		"limit": {strconv.Itoa(utils.TracksLimit)},
 	}
 	var url = fmt.Sprintf("%s/me/playlists?%s", utils.SpotifyAPIBaseURL, query.Encode())
 
