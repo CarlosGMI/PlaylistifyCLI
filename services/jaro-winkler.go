@@ -1,3 +1,4 @@
+// CREDITS TO https://github.com/jhvst
 // Jaro Winkler algorithm copy/pasted from here: https://github.com/jhvst/go-jaro-winkler-distance
 package services
 
