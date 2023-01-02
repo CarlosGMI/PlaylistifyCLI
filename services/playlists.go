@@ -215,9 +215,11 @@ func executeSearch(tracks []track, term string, requestNumber int, results *[]ta
 
 		formattedArtists := strings.Join(artists, ", ")
 		trackNameIncludesTerm := fuzzy.Match(term, strings.ToLower(item.Track.Name))
+		trackNameTermScore := CalculateJaroWinkler(term, strings.ToLower(item.Track.Name))
 		artistsIncludesTerm := fuzzy.Match(term, strings.ToLower(formattedArtists))
+		artistsTermScore := CalculateJaroWinkler(term, strings.ToLower(formattedArtists))
 
-		if trackNameIncludesTerm || artistsIncludesTerm {
+		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
 			*results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
 		}
 	}
