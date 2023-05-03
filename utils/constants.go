@@ -17,4 +17,6 @@ const (
 	LetterRunes                   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_"
 	PlaylistifyScopes             = "playlist-read-private playlist-read-collaborative user-read-email user-read-private"
 	TracksLimit                   = 50
+	// TUI Colors
+	ColorSpotifyGreen = "#1DB954"
 )

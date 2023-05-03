@@ -1,7 +1,11 @@
 package playlist
 
 import (
-	"github.com/CarlosGMI/Playlistify/services"
+	"fmt"
+	"os"
+
+	"github.com/CarlosGMI/Playlistify/tui"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
@@ -11,17 +15,25 @@ func ListCommand() *cobra.Command {
 		Short: "A brief description of your command",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := services.IsAuthenticated(); err != nil {
-				return err
+			m := tui.CreateSpinner("Loading...")
+
+			if _, err := tea.NewProgram(m).Run(); err != nil {
+				fmt.Println("could not run program:", err)
+				os.Exit(1)
 			}
 
-			if err := services.GetPlaylists(); err != nil {
-				return err
-			}
+			fmt.Println("perfect ed sehraan")
+			// if err := services.IsAuthenticated(); err != nil {
+			// 	return err
+			// }
 
-			if err := services.PrintPlaylists(); err != nil {
-				return err
-			}
+			// if err := services.GetPlaylists(); err != nil {
+			// 	return err
+			// }
+
+			// if err := services.PrintPlaylists(); err != nil {
+			// 	return err
+			// }
 
 			return nil
 		},

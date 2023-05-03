@@ -2,17 +2,15 @@ package services
 
 import (
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
-	"strings"
-	"sync"
+
+	// "strings"
 
 	"github.com/CarlosGMI/Playlistify/utils"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/lithammer/fuzzysearch/fuzzy"
+	// "github.com/jedib0t/go-pretty/v6/table"
+	// "github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/viper"
 )
 
@@ -97,31 +95,31 @@ func storePlaylists(playlists *[]playlist) {
 	viper.WriteConfig()
 }
 
-func PrintPlaylists() error {
-	var playlists []playlist
-	userId := viper.GetString("user_id")
+// func PrintPlaylists() error {
+// 	var playlists []playlist
+// 	userId := viper.GetString("user_id")
 
-	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-		return err
-	}
+// 	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
+// 		return err
+// 	}
 
-	playlistsTable := table.NewWriter()
-	var rows []table.Row
+// 	playlistsTable := table.NewWriter()
+// 	var rows []table.Row
 
-	playlistsTable.SetOutputMirror(os.Stdout)
-	playlistsTable.AppendHeader(table.Row{"Playlist ID", "Name", "Total Tracks"})
+// 	playlistsTable.SetOutputMirror(os.Stdout)
+// 	playlistsTable.AppendHeader(table.Row{"Playlist ID", "Name", "Total Tracks"})
 
-	for index, playlist := range playlists {
-		if playlist.Owner.Id == userId || playlist.Collaborative {
-			rows = append(rows, table.Row{index, playlist.Name, playlist.Tracks.Total})
-		}
-	}
+// 	for index, playlist := range playlists {
+// 		if playlist.Owner.Id == userId || playlist.Collaborative {
+// 			rows = append(rows, table.Row{index, playlist.Name, playlist.Tracks.Total})
+// 		}
+// 	}
 
-	playlistsTable.AppendRows(rows)
-	playlistsTable.Render()
+// 	playlistsTable.AppendRows(rows)
+// 	playlistsTable.Render()
 
-	return nil
-}
+// 	return nil
+// }
 
 func SearchInPlaylist(playlistId int, searchTerm string) error {
 	var playlists []playlist
@@ -139,7 +137,7 @@ func SearchInPlaylist(playlistId int, searchTerm string) error {
 		}
 	}
 
-	getTracksAndSearch(playlist, searchTerm)
+	// getTracksAndSearch(playlist, searchTerm)
 
 	return nil
 }
@@ -165,28 +163,28 @@ func getPlaylistWithOffset(id string, playlist *playlist) error {
 	return nil
 }
 
-func getTracksAndSearch(playlist *playlist, searchTerm string) error {
-	var results []table.Row
-	waitGroup := sync.WaitGroup{}
-	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
+// func getTracksAndSearch(playlist *playlist, searchTerm string) error {
+// 	var results []table.Row
+// 	waitGroup := sync.WaitGroup{}
+// 	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
 
-	for i := 0; i < int(numberOfRequests); i++ {
-		var tracksResults = new(playlistTracks)
+// 	for i := 0; i < int(numberOfRequests); i++ {
+// 		var tracksResults = new(playlistTracks)
 
-		waitGroup.Add(1)
+// 		waitGroup.Add(1)
 
-		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
-			fetchTracks(requestNumber, playlist.Id, tracks)
-			executeSearch(tracks.Tracks, term, requestNumber, results)
-			waitGroup.Done()
-		}(i, playlist.Id, tracksResults, searchTerm, &results)
-	}
+// 		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
+// 			fetchTracks(requestNumber, playlist.Id, tracks)
+// 			executeSearch(tracks.Tracks, term, requestNumber, results)
+// 			waitGroup.Done()
+// 		}(i, playlist.Id, tracksResults, searchTerm, &results)
+// 	}
 
-	waitGroup.Wait()
-	printSearchResults(results)
+// 	waitGroup.Wait()
+// 	printSearchResults(results)
 
-	return nil
-}
+// 	return nil
+// }
 
 func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTracks) error {
 	query := url.Values{
@@ -203,35 +201,35 @@ func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTr
 	return nil
 }
 
-func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
-	var offset = requestNumber * utils.TracksLimit
+// func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
+// 	var offset = requestNumber * utils.TracksLimit
 
-	for i, item := range tracks {
-		var artists []string
+// 	for i, item := range tracks {
+// 		var artists []string
 
-		for _, artist := range item.Track.Artists {
-			artists = append(artists, artist.Name)
-		}
+// 		for _, artist := range item.Track.Artists {
+// 			artists = append(artists, artist.Name)
+// 		}
 
-		formattedArtists := strings.Join(artists, ", ")
-		trackNameIncludesTerm := fuzzy.Match(term, strings.ToLower(item.Track.Name))
-		trackNameTermScore := CalculateJaroWinkler(term, strings.ToLower(item.Track.Name))
-		artistsIncludesTerm := fuzzy.Match(term, strings.ToLower(formattedArtists))
-		artistsTermScore := CalculateJaroWinkler(term, strings.ToLower(formattedArtists))
+// 		formattedArtists := strings.Join(artists, ", ")
+// 		trackNameIncludesTerm := fuzzy.Match(term, strings.ToLower(item.Track.Name))
+// 		trackNameTermScore := CalculateJaroWinkler(term, strings.ToLower(item.Track.Name))
+// 		artistsIncludesTerm := fuzzy.Match(term, strings.ToLower(formattedArtists))
+// 		artistsTermScore := CalculateJaroWinkler(term, strings.ToLower(formattedArtists))
 
-		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
-			*results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
-		}
-	}
+// 		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
+// 			// *results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func printSearchResults(results []table.Row) {
-	resultsTable := table.NewWriter()
+// func printSearchResults(results []table.Row) {
+// 	resultsTable := table.NewWriter()
 
-	resultsTable.SetOutputMirror(os.Stdout)
-	resultsTable.AppendHeader(table.Row{"#", "Name", "Artists"})
-	resultsTable.AppendRows(results)
-	resultsTable.Render()
-}
+// 	resultsTable.SetOutputMirror(os.Stdout)
+// 	resultsTable.AppendHeader(table.Row{"#", "Name", "Artists"})
+// 	resultsTable.AppendRows(results)
+// 	resultsTable.Render()
+// }
