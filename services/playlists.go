@@ -9,6 +9,9 @@ import (
 	// "strings"
 
 	"github.com/CarlosGMI/Playlistify/utils"
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+
 	// "github.com/jedib0t/go-pretty/v6/table"
 	// "github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/viper"
@@ -56,7 +59,13 @@ type playlistTracks struct {
 	Tracks []track `json:"items"`
 }
 
-func GetPlaylists() error {
+type PlaylistsErrorMsg struct {
+	Message string
+}
+
+type PlaylistsMsg string
+
+func GetPlaylists() tea.Msg {
 	var playlists []playlist
 	var query = url.Values{
 		"limit": {strconv.Itoa(utils.TracksLimit)},
@@ -64,12 +73,12 @@ func GetPlaylists() error {
 	var url = fmt.Sprintf("%s/me/playlists?%s", utils.SpotifyAPIBaseURL, query.Encode())
 
 	if err := fetchPlaylists(&playlists, url); err != nil {
-		return err
+		return PlaylistsErrorMsg{err.Error()}
 	}
 
 	storePlaylists(&playlists)
 
-	return nil
+	return PlaylistsMsg("")
 }
 
 func fetchPlaylists(playlists *[]playlist, url string) error {
@@ -95,31 +104,23 @@ func storePlaylists(playlists *[]playlist) {
 	viper.WriteConfig()
 }
 
-// func PrintPlaylists() error {
-// 	var playlists []playlist
-// 	userId := viper.GetString("user_id")
+func PrintPlaylists() ([]table.Row, error) {
+	var playlists []playlist
+	var rows []table.Row
+	userId := viper.GetString("user_id")
 
-// 	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-// 		return err
-// 	}
+	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
+		return rows, err
+	}
 
-// 	playlistsTable := table.NewWriter()
-// 	var rows []table.Row
+	for index, playlist := range playlists {
+		if playlist.Owner.Id == userId || playlist.Collaborative {
+			rows = append(rows, table.Row{strconv.Itoa(index), playlist.Name, strconv.Itoa(playlist.Tracks.Total)})
+		}
+	}
 
-// 	playlistsTable.SetOutputMirror(os.Stdout)
-// 	playlistsTable.AppendHeader(table.Row{"Playlist ID", "Name", "Total Tracks"})
-
-// 	for index, playlist := range playlists {
-// 		if playlist.Owner.Id == userId || playlist.Collaborative {
-// 			rows = append(rows, table.Row{index, playlist.Name, playlist.Tracks.Total})
-// 		}
-// 	}
-
-// 	playlistsTable.AppendRows(rows)
-// 	playlistsTable.Render()
-
-// 	return nil
-// }
+	return rows, nil
+}
 
 func SearchInPlaylist(playlistId int, searchTerm string) error {
 	var playlists []playlist
