@@ -2,18 +2,18 @@ package services
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
-
-	// "strings"
+	"strings"
+	"sync"
 
 	"github.com/CarlosGMI/Playlistify/utils"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 
-	// "github.com/jedib0t/go-pretty/v6/table"
-	// "github.com/lithammer/fuzzysearch/fuzzy"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/viper"
 )
 
@@ -64,6 +64,9 @@ type PlaylistsErrorMsg struct {
 }
 
 type PlaylistsMsg string
+type SearchResultsMsg struct {
+	Results []table.Row
+}
 
 func GetPlaylists() tea.Msg {
 	var playlists []playlist
@@ -122,25 +125,30 @@ func PrintPlaylists() ([]table.Row, error) {
 	return rows, nil
 }
 
-func SearchInPlaylist(playlistId int, searchTerm string) error {
+func SearchInPlaylist(playlistId string, searchTerm string) tea.Msg {
 	var playlists []playlist
 	var playlist = new(playlist)
+	formattedId, err := strconv.Atoi(playlistId)
 
-	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-		return err
+	if err != nil {
+		return PlaylistsErrorMsg{err.Error()}
 	}
 
-	if len(playlists) > 0 && playlistId <= len(playlists) {
-		playlist = &playlists[playlistId]
+	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
+		return PlaylistsErrorMsg{err.Error()}
+	}
+
+	if len(playlists) > 0 && formattedId <= len(playlists) {
+		playlist = &playlists[formattedId]
 	} else {
-		if err := getPlaylistWithOffset(strconv.Itoa(playlistId), playlist); err != nil {
-			return err
+		if err := getPlaylistWithOffset(strconv.Itoa(formattedId), playlist); err != nil {
+			return PlaylistsErrorMsg{err.Error()}
 		}
 	}
 
-	// getTracksAndSearch(playlist, searchTerm)
+	results, _ := getTracksAndSearch(playlist, strings.ToLower(searchTerm))
 
-	return nil
+	return SearchResultsMsg{results}
 }
 
 func getPlaylistWithOffset(id string, playlist *playlist) error {
@@ -164,28 +172,27 @@ func getPlaylistWithOffset(id string, playlist *playlist) error {
 	return nil
 }
 
-// func getTracksAndSearch(playlist *playlist, searchTerm string) error {
-// 	var results []table.Row
-// 	waitGroup := sync.WaitGroup{}
-// 	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
+func getTracksAndSearch(playlist *playlist, searchTerm string) ([]table.Row, error) {
+	var results []table.Row
+	waitGroup := sync.WaitGroup{}
+	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
 
-// 	for i := 0; i < int(numberOfRequests); i++ {
-// 		var tracksResults = new(playlistTracks)
+	for i := 0; i < int(numberOfRequests); i++ {
+		var tracksResults = new(playlistTracks)
 
-// 		waitGroup.Add(1)
+		waitGroup.Add(1)
 
-// 		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
-// 			fetchTracks(requestNumber, playlist.Id, tracks)
-// 			executeSearch(tracks.Tracks, term, requestNumber, results)
-// 			waitGroup.Done()
-// 		}(i, playlist.Id, tracksResults, searchTerm, &results)
-// 	}
+		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
+			fetchTracks(requestNumber, playlist.Id, tracks)
+			executeSearch(tracks.Tracks, term, requestNumber, results)
+			waitGroup.Done()
+		}(i, playlist.Id, tracksResults, searchTerm, &results)
+	}
 
-// 	waitGroup.Wait()
-// 	printSearchResults(results)
+	waitGroup.Wait()
 
-// 	return nil
-// }
+	return results, nil
+}
 
 func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTracks) error {
 	query := url.Values{
@@ -202,35 +209,26 @@ func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTr
 	return nil
 }
 
-// func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
-// 	var offset = requestNumber * utils.TracksLimit
+func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
+	var offset = requestNumber * utils.TracksLimit
 
-// 	for i, item := range tracks {
-// 		var artists []string
+	for i, item := range tracks {
+		var artists []string
 
-// 		for _, artist := range item.Track.Artists {
-// 			artists = append(artists, artist.Name)
-// 		}
+		for _, artist := range item.Track.Artists {
+			artists = append(artists, artist.Name)
+		}
 
-// 		formattedArtists := strings.Join(artists, ", ")
-// 		trackNameIncludesTerm := fuzzy.Match(term, strings.ToLower(item.Track.Name))
-// 		trackNameTermScore := CalculateJaroWinkler(term, strings.ToLower(item.Track.Name))
-// 		artistsIncludesTerm := fuzzy.Match(term, strings.ToLower(formattedArtists))
-// 		artistsTermScore := CalculateJaroWinkler(term, strings.ToLower(formattedArtists))
+		formattedArtists := strings.Join(artists, ", ")
+		trackNameIncludesTerm := fuzzy.Match(term, strings.ToLower(item.Track.Name))
+		trackNameTermScore := CalculateJaroWinkler(term, strings.ToLower(item.Track.Name))
+		artistsIncludesTerm := fuzzy.Match(term, strings.ToLower(formattedArtists))
+		artistsTermScore := CalculateJaroWinkler(term, strings.ToLower(formattedArtists))
 
-// 		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
-// 			// *results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
-// 		}
-// 	}
+		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
+			*results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
+		}
+	}
 
-// 	return nil
-// }
-
-// func printSearchResults(results []table.Row) {
-// 	resultsTable := table.NewWriter()
-
-// 	resultsTable.SetOutputMirror(os.Stdout)
-// 	resultsTable.AppendHeader(table.Row{"#", "Name", "Artists"})
-// 	resultsTable.AppendRows(results)
-// 	resultsTable.Render()
-// }
+	return nil
+}

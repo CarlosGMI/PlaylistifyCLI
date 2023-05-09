@@ -1,11 +1,11 @@
 package playlist
 
 import (
-	"errors"
-	"strconv"
-	"strings"
+	"fmt"
+	"os"
 
-	"github.com/CarlosGMI/Playlistify/services"
+	"github.com/CarlosGMI/Playlistify/tui"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
@@ -17,29 +17,27 @@ func SearchCommand() *cobra.Command {
 		Short: "Command to look for a song/artist inside a specific playlist",
 		Long: `This command will allow you to find possible duplicates in a playlist by looking up a specific term within all the tracks of the playlist.
 
-		Usage: playlistify search -p PLAYLIST_ID -s "TERM_YOU_WANT_TO_LOOK_FOR"
+		Usage:
+		- playlistify search -p PLAYLIST_ID -s "TERM_YOU_WANT_TO_LOOK_FOR"
+		- playlistify search -p PLAYLIST_ID -s "TERM_YOU_WANT_TO_LOOK_FOR"
 		Example:
+		  - playlistify search
 		  - playlistify search -p 10 -s "Linkin"
 		  - playlistify search -p 2 -s "two hearts"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			termNoWhitespace := strings.ReplaceAll(searchTermFlag, " ", "")
+			var model tui.SearchModel
+			hasPlaylist := cmd.Flags().Changed("playlist")
+			hasSearchTerm := cmd.Flags().Changed("term")
 
-			if len(termNoWhitespace) < 3 {
-				return errors.New("the search term must be longer than 3 characters (excluding white spaces)")
+			if !hasPlaylist && !hasSearchTerm {
+				model = tui.CreateSearchModel(true, "", "")
+			} else {
+				model = tui.CreateSearchModel(false, playlistIdFlag, searchTermFlag)
 			}
 
-			if err := services.IsAuthenticated(); err != nil {
-				return err
-			}
-
-			playlistId, err := strconv.Atoi(playlistIdFlag)
-
-			if err != nil {
-				return err
-			}
-
-			if err := services.SearchInPlaylist(playlistId, strings.ToLower(searchTermFlag)); err != nil {
-				return err
+			if _, err := tea.NewProgram(model).Run(); err != nil {
+				fmt.Println("could not run program:", err)
+				os.Exit(1)
 			}
 
 			return nil
@@ -47,9 +45,8 @@ func SearchCommand() *cobra.Command {
 	}
 
 	command.Flags().StringVarP(&playlistIdFlag, "playlist", "p", "", "Playlist ID (required)")
-	command.MarkFlagRequired("playlist")
 	command.Flags().StringVarP(&searchTermFlag, "term", "t", "", "Term to search for (required)")
-	command.MarkFlagRequired("term")
+	command.MarkFlagsRequiredTogether("playlist", "term")
 
 	return command
 }

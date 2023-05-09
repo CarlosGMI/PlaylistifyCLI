@@ -23,13 +23,19 @@ const (
 	LetterRunes                   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_"
 	PlaylistifyScopes             = "playlist-read-private playlist-read-collaborative user-read-email user-read-private"
 	TracksLimit                   = 50
+	SearchingText                 = "Searching..."
 	// TUI Colors
-	ColorSpotifyGreen = "#1DB954"
-	ColorSpotifyRed   = "#FF5263"
+	ColorSpotifyGreen       = "#1DB954"
+	ColorSpotifyGreenOpaque = "#1DB9544D"
+	ColorSpotifyRed         = "#FF5263"
 	// TUI States
 	LoadingState = "loading"
 	ErrorState   = "error"
 	SuccessState = "success"
+	InputState   = "input"
+	// TUI Tables
+	PlaylistsTable = "PLAYLISTS"
+	SongsTable     = "SONGS"
 )
 
 var ErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSpotifyRed)).Render
