@@ -68,7 +68,7 @@ func (model *PlaylistsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 
-		model.results = CreateTable("PLAYLISTS", playlists, false)
+		model.results = CreateTable("PLAYLISTS", playlists, false, "")
 
 		return model.results.Update(msg)
 	case services.PlaylistsErrorMsg:
