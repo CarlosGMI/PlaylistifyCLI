@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/CarlosGMI/Playlistify/utils"
+	tea "github.com/charmbracelet/bubbletea"
 	pkce "github.com/nirasan/go-oauth-pkce-code-verifier"
 	"github.com/pkg/browser"
 	"github.com/spf13/viper"
@@ -20,7 +21,6 @@ type authorizationValues struct {
 	code string
 	err  error
 }
-
 type token struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
@@ -28,84 +28,86 @@ type token struct {
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
 }
-
-func Authenticate() error {
-	if err := IsAuthenticated(); err == nil {
-		user, err := GetAccountInformation()
-
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf(utils.AlreadyLoggedInError, user.DisplayName, user.Email)
-	}
-
-	if err := login(); err != nil {
-		return err
-	}
-
-	return nil
+type AuthMsg struct {
+	ErrorType int
+	Message   string
 }
+type NotAuthenticatedMsg AuthMsg
+type AuthErrorMsg AuthMsg
+type AuthorizedMsg string
+type LoggedInMsg string
+type LoggedInUserMsg struct{ Message string }
 
-func IsAuthenticated() error {
+var pkceVerifier, pkceChallenge string
+var authorization authorizationValues
+
+func InitAuthentication() tea.Msg {
 	token := viper.GetString("token")
 	expiration := viper.GetInt64("token_expiration")
 
 	if token == "" {
-		return errors.New(utils.NotLoggedInError)
+		return NotAuthenticatedMsg{utils.NotLoggedInCode, utils.NotLoggedInError}
 	}
 
 	if time.Now().Unix() > expiration {
-		if err := refreshAuthorization(); err != nil {
-			return err
-		}
-
-		return nil
+		return NotAuthenticatedMsg{utils.ExpiredTokenCode, utils.ExpiredTokenError}
 	}
 
-	return nil
+	return AuthErrorMsg{utils.AlreadyLoggedInCode, utils.AlreadyLoggedInError}
 }
 
-func login() error {
-	pkceVerifier, pkceChallenge := initPKCECodeChallenge()
+func Authenticate() tea.Msg {
+	initPKCECodeChallenge()
 	state := generateRandomState()
 	uri := buildAuthURI(pkceChallenge, state)
 
 	if err := browser.OpenURL(uri); err != nil {
-		return err
+		return AuthErrorMsg{
+			Message: err.Error(),
+		}
 	}
 
-	authorizationValues := listenForSpotifyAuthorization(state)
+	authorization = listenForSpotifyAuthorization(state)
 
-	if authorizationValues.err != nil {
-		return authorizationValues.err
+	if authorization.err != nil {
+		return AuthErrorMsg{
+			Message: authorization.err.Error(),
+		}
 	}
 
-	fmt.Println("Authenticating...")
+	return AuthorizedMsg("Authorized")
+}
 
-	token, err := requestSpotifyToken(authorizationValues.code, pkceVerifier)
+func Login() tea.Msg {
+	token, err := requestSpotifyToken(authorization.code, pkceVerifier)
 
 	if err != nil {
-		return err
+		return AuthErrorMsg{
+			Message: err.Error(),
+		}
 	}
 
 	storeTokenInformation(token)
+
+	return LoggedInMsg("Authenticated")
+}
+
+func FetchAuthenticatedUser() tea.Msg {
 	user, err := GetAccountInformation()
 
 	if err != nil {
-		return err
+		return AuthErrorMsg{
+			Message: err.Error(),
+		}
 	}
 
-	fmt.Printf("Successfully logged in as %s (%s)\n", user.DisplayName, user.Email)
-
-	return nil
+	return LoggedInUserMsg{fmt.Sprintf("Successfully logged in as %s (%s)", user.DisplayName, user.Email)}
 }
 
-func initPKCECodeChallenge() (string, string) {
-	pkceVerifier, _ := pkce.CreateCodeVerifier()
-	pkceChallenge := pkceVerifier.CodeChallengeS256()
-
-	return pkceVerifier.Value, pkceChallenge
+func initPKCECodeChallenge() {
+	verifier, _ := pkce.CreateCodeVerifier()
+	pkceVerifier = verifier.Value
+	pkceChallenge = verifier.CodeChallengeS256()
 }
 
 func generateRandomState() string {
@@ -200,17 +202,18 @@ func requestSpotifyToken(code string, pkceVerifier string) (*token, error) {
 	return token, err
 }
 
-func refreshAuthorization() error {
-	fmt.Println("Your access token has expired, refreshing token...")
+func RefreshAuthorization() tea.Msg {
 	token, err := requestSpotifyRefreshToken()
 
 	if err != nil {
-		return err
+		return AuthErrorMsg{
+			Message: err.Error(),
+		}
 	}
 
 	storeTokenInformation(token)
 
-	return nil
+	return LoggedInMsg("Authenticated")
 }
 
 func requestSpotifyRefreshToken() (*token, error) {

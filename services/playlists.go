@@ -5,13 +5,15 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/CarlosGMI/Playlistify/utils"
-	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+	textTable "github.com/jedib0t/go-pretty/v6/table"
+
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/viper"
 )
@@ -58,7 +60,17 @@ type playlistTracks struct {
 	Tracks []track `json:"items"`
 }
 
-func GetPlaylists() error {
+type PlaylistsErrorMsg struct {
+	Message string
+}
+
+type PlaylistsMsg string
+type SearchResultsMsg struct {
+	Results     []table.Row
+	TextResults []textTable.Row
+}
+
+func GetPlaylists() tea.Msg {
 	var playlists []playlist
 	var query = url.Values{
 		"limit": {strconv.Itoa(utils.TracksLimit)},
@@ -66,12 +78,12 @@ func GetPlaylists() error {
 	var url = fmt.Sprintf("%s/me/playlists?%s", utils.SpotifyAPIBaseURL, query.Encode())
 
 	if err := fetchPlaylists(&playlists, url); err != nil {
-		return err
+		return PlaylistsErrorMsg{err.Error()}
 	}
 
 	storePlaylists(&playlists)
 
-	return nil
+	return PlaylistsMsg("")
 }
 
 func fetchPlaylists(playlists *[]playlist, url string) error {
@@ -97,51 +109,50 @@ func storePlaylists(playlists *[]playlist) {
 	viper.WriteConfig()
 }
 
-func PrintPlaylists() error {
+func PrintPlaylists() ([]table.Row, []textTable.Row, error) {
 	var playlists []playlist
+	var rows []table.Row
+	var textRows []textTable.Row
 	userId := viper.GetString("user_id")
 
 	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-		return err
+		return rows, textRows, err
 	}
-
-	playlistsTable := table.NewWriter()
-	var rows []table.Row
-
-	playlistsTable.SetOutputMirror(os.Stdout)
-	playlistsTable.AppendHeader(table.Row{"Playlist ID", "Name", "Total Tracks"})
 
 	for index, playlist := range playlists {
 		if playlist.Owner.Id == userId || playlist.Collaborative {
-			rows = append(rows, table.Row{index, playlist.Name, playlist.Tracks.Total})
+			rows = append(rows, table.Row{strconv.Itoa(index), playlist.Name, strconv.Itoa(playlist.Tracks.Total)})
+			textRows = append(textRows, textTable.Row{strconv.Itoa(index), playlist.Name, strconv.Itoa(playlist.Tracks.Total)})
 		}
 	}
 
-	playlistsTable.AppendRows(rows)
-	playlistsTable.Render()
-
-	return nil
+	return rows, textRows, nil
 }
 
-func SearchInPlaylist(playlistId int, searchTerm string) error {
+func SearchInPlaylist(playlistId string, searchTerm string) tea.Msg {
 	var playlists []playlist
 	var playlist = new(playlist)
+	formattedId, err := strconv.Atoi(playlistId)
 
-	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-		return err
+	if err != nil {
+		return PlaylistsErrorMsg{err.Error()}
 	}
 
-	if len(playlists) > 0 && playlistId <= len(playlists) {
-		playlist = &playlists[playlistId]
+	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
+		return PlaylistsErrorMsg{err.Error()}
+	}
+
+	if len(playlists) > 0 && formattedId <= len(playlists) {
+		playlist = &playlists[formattedId]
 	} else {
-		if err := getPlaylistWithOffset(strconv.Itoa(playlistId), playlist); err != nil {
-			return err
+		if err := getPlaylistWithOffset(strconv.Itoa(formattedId), playlist); err != nil {
+			return PlaylistsErrorMsg{err.Error()}
 		}
 	}
 
-	getTracksAndSearch(playlist, searchTerm)
+	results, textResults, _ := getTracksAndSearch(playlist, strings.ToLower(searchTerm))
 
-	return nil
+	return SearchResultsMsg{results, textResults}
 }
 
 func getPlaylistWithOffset(id string, playlist *playlist) error {
@@ -165,8 +176,9 @@ func getPlaylistWithOffset(id string, playlist *playlist) error {
 	return nil
 }
 
-func getTracksAndSearch(playlist *playlist, searchTerm string) error {
+func getTracksAndSearch(playlist *playlist, searchTerm string) ([]table.Row, []textTable.Row, error) {
 	var results []table.Row
+	var textResults []textTable.Row
 	waitGroup := sync.WaitGroup{}
 	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
 
@@ -175,17 +187,22 @@ func getTracksAndSearch(playlist *playlist, searchTerm string) error {
 
 		waitGroup.Add(1)
 
-		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
+		go func(requestNumber int,
+			playlistId string,
+			tracks *playlistTracks,
+			term string,
+			results *[]table.Row,
+			textResults *[]textTable.Row,
+		) {
 			fetchTracks(requestNumber, playlist.Id, tracks)
-			executeSearch(tracks.Tracks, term, requestNumber, results)
+			executeSearch(tracks.Tracks, term, requestNumber, results, textResults)
 			waitGroup.Done()
-		}(i, playlist.Id, tracksResults, searchTerm, &results)
+		}(i, playlist.Id, tracksResults, searchTerm, &results, &textResults)
 	}
 
 	waitGroup.Wait()
-	printSearchResults(results)
 
-	return nil
+	return results, textResults, nil
 }
 
 func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTracks) error {
@@ -203,7 +220,7 @@ func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTr
 	return nil
 }
 
-func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
+func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row, textResults *[]textTable.Row) error {
 	var offset = requestNumber * utils.TracksLimit
 
 	for i, item := range tracks {
@@ -221,17 +238,9 @@ func executeSearch(tracks []track, term string, requestNumber int, results *[]ta
 
 		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
 			*results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
+			*textResults = append(*textResults, textTable.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
 		}
 	}
 
 	return nil
-}
-
-func printSearchResults(results []table.Row) {
-	resultsTable := table.NewWriter()
-
-	resultsTable.SetOutputMirror(os.Stdout)
-	resultsTable.AppendHeader(table.Row{"#", "Name", "Artists"})
-	resultsTable.AppendRows(results)
-	resultsTable.Render()
 }

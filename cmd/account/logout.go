@@ -8,7 +8,7 @@ import (
 func LogoutCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "logout",
-		Short: "A brief description of your command",
+		Short: "Log out from your current Spotify account",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
 			services.EmptyTokenInformation()

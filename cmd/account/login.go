@@ -1,23 +1,29 @@
 package account
 
 import (
-	"github.com/CarlosGMI/Playlistify/services"
+	"fmt"
+	"os"
+
+	"github.com/CarlosGMI/Playlistify/tui"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
 func LoginCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "login",
-		Short: "A brief description of your command",
+		Short: "Login to your Shopify account and authorize this app",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := services.Authenticate(); err != nil {
-				return err
+			authModel := tui.CreateAuthentication()
+
+			if _, err := tea.NewProgram(&authModel).Run(); err != nil {
+				fmt.Println("could not run program:", err)
+				os.Exit(1)
 			}
 
 			return nil
 		},
 	}
-
 	return command
 }
