@@ -7,9 +7,11 @@ import (
 	"github.com/CarlosGMI/Playlistify/utils"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	textTable "github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/term"
 )
 
 type tableKeymap struct {
@@ -28,7 +30,7 @@ type TableModel struct {
 	previewText string
 	showHelp    bool
 	mode        string
-	textRows    []textTable.Row
+	viewport    viewport.Model
 }
 type SelectedItemMsg struct {
 	Item string
@@ -72,10 +74,17 @@ func CreateTable(tableType string, rows []table.Row, textRows []textTable.Row, u
 	var tableHeight = defaultTableHeight
 	showHelp := tableType == TableTypes[1] && !updatable
 	tableHelpOptions[0].condition = tableType == TableTypes[1]
+	terminalWidth, _, err := term.GetSize(0)
+
+	if err != nil {
+		terminalWidth = 122
+	}
 
 	if len(rows) < tableHeight {
 		tableHeight = len(rows)
 	}
+
+	textTableViewport := viewport.New(terminalWidth, tableHeight+4)
 
 	newTable := table.New(
 		table.WithColumns(columns[tableType]),
@@ -93,8 +102,16 @@ func CreateTable(tableType string, rows []table.Row, textRows []textTable.Row, u
 	styles.Selected.Foreground(lipgloss.Color("#FFFFFF"))
 	styles.Selected.Background(lipgloss.Color(utils.ColorSpotifyGreenOpaque))
 	newTable.SetStyles(styles)
+	textTableViewport.SetContent(textView(tableType, textRows))
 
-	return TableModel{newTable, tableType, updatable, previewText, showHelp, "table", textRows}
+	return TableModel{newTable,
+		tableType,
+		updatable,
+		previewText,
+		showHelp,
+		"table",
+		textTableViewport,
+	}
 }
 
 func (model TableModel) Init() tea.Cmd {
@@ -142,7 +159,12 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	model.table, cmd = model.table.Update(msg)
+	if model.mode == utils.TableModeDefault {
+		model.table, cmd = model.table.Update(msg)
+	} else {
+		model.viewport, cmd = model.viewport.Update(msg)
+	}
+
 	cmds = append(cmds, cmd)
 
 	return model, tea.Batch(cmds...)
@@ -155,7 +177,7 @@ func (model TableModel) View() string {
 		if model.mode == utils.TableModeDefault {
 			return fmt.Sprintf("\n%s\n\n%s", tableBaseStyle.Render(model.table.View()), model.helpView())
 		} else {
-			return fmt.Sprintf("\n%s\n\n%s", model.textView(), model.helpView())
+			return fmt.Sprintf("\n%s\n\n%s", model.viewport.View(), model.helpView())
 		}
 	}
 }
@@ -172,18 +194,17 @@ func (model TableModel) helpView() string {
 	return utils.HelpStyle(" " + strings.Join(optionsToShow, " • "))
 }
 
-func (model TableModel) textView() string {
+func textView(tableType string, rows []textTable.Row) string {
 	var header textTable.Row
 	newTable := textTable.NewWriter()
-	currentColumns := columns[model.tableType]
+	currentColumns := columns[tableType]
 
 	for i := range currentColumns {
 		header = append(header, currentColumns[i].Title)
 	}
 
-	// newTable.SetOutputMirror(os.Stdout)
 	newTable.AppendHeader(header)
-	newTable.AppendRows(model.textRows)
+	newTable.AppendRows(rows)
 
 	return newTable.Render()
 }

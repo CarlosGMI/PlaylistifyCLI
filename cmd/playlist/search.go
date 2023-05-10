@@ -35,7 +35,7 @@ func SearchCommand() *cobra.Command {
 				model = tui.CreateSearchModel(false, playlistIdFlag, searchTermFlag)
 			}
 
-			if _, err := tea.NewProgram(model).Run(); err != nil {
+			if _, err := tea.NewProgram(model, tea.WithMouseCellMotion()).Run(); err != nil {
 				fmt.Println("could not run program:", err)
 				os.Exit(1)
 			}
