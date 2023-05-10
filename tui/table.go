@@ -155,8 +155,6 @@ func (model TableModel) View() string {
 		if model.mode == utils.TableModeDefault {
 			return fmt.Sprintf("\n%s\n\n%s", tableBaseStyle.Render(model.table.View()), model.helpView())
 		} else {
-			// fmt.Println("model.textView()")
-			// return "aa"
 			return fmt.Sprintf("\n%s\n\n%s", model.textView(), model.helpView())
 		}
 	}
