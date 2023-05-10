@@ -12,6 +12,7 @@ import (
 	"github.com/CarlosGMI/Playlistify/utils"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	textTable "github.com/jedib0t/go-pretty/v6/table"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/viper"
@@ -65,7 +66,8 @@ type PlaylistsErrorMsg struct {
 
 type PlaylistsMsg string
 type SearchResultsMsg struct {
-	Results []table.Row
+	Results     []table.Row
+	TextResults []textTable.Row
 }
 
 func GetPlaylists() tea.Msg {
@@ -107,22 +109,24 @@ func storePlaylists(playlists *[]playlist) {
 	viper.WriteConfig()
 }
 
-func PrintPlaylists() ([]table.Row, error) {
+func PrintPlaylists() ([]table.Row, []textTable.Row, error) {
 	var playlists []playlist
 	var rows []table.Row
+	var textRows []textTable.Row
 	userId := viper.GetString("user_id")
 
 	if err := viper.UnmarshalKey("playlists", &playlists); err != nil {
-		return rows, err
+		return rows, textRows, err
 	}
 
 	for index, playlist := range playlists {
 		if playlist.Owner.Id == userId || playlist.Collaborative {
 			rows = append(rows, table.Row{strconv.Itoa(index), playlist.Name, strconv.Itoa(playlist.Tracks.Total)})
+			textRows = append(textRows, textTable.Row{strconv.Itoa(index), playlist.Name, strconv.Itoa(playlist.Tracks.Total)})
 		}
 	}
 
-	return rows, nil
+	return rows, textRows, nil
 }
 
 func SearchInPlaylist(playlistId string, searchTerm string) tea.Msg {
@@ -146,9 +150,9 @@ func SearchInPlaylist(playlistId string, searchTerm string) tea.Msg {
 		}
 	}
 
-	results, _ := getTracksAndSearch(playlist, strings.ToLower(searchTerm))
+	results, textResults, _ := getTracksAndSearch(playlist, strings.ToLower(searchTerm))
 
-	return SearchResultsMsg{results}
+	return SearchResultsMsg{results, textResults}
 }
 
 func getPlaylistWithOffset(id string, playlist *playlist) error {
@@ -172,8 +176,9 @@ func getPlaylistWithOffset(id string, playlist *playlist) error {
 	return nil
 }
 
-func getTracksAndSearch(playlist *playlist, searchTerm string) ([]table.Row, error) {
+func getTracksAndSearch(playlist *playlist, searchTerm string) ([]table.Row, []textTable.Row, error) {
 	var results []table.Row
+	var textResults []textTable.Row
 	waitGroup := sync.WaitGroup{}
 	numberOfRequests := math.Ceil(float64(playlist.Tracks.Total) / utils.TracksLimit)
 
@@ -182,16 +187,22 @@ func getTracksAndSearch(playlist *playlist, searchTerm string) ([]table.Row, err
 
 		waitGroup.Add(1)
 
-		go func(requestNumber int, playlistId string, tracks *playlistTracks, term string, results *[]table.Row) {
+		go func(requestNumber int,
+			playlistId string,
+			tracks *playlistTracks,
+			term string,
+			results *[]table.Row,
+			textResults *[]textTable.Row,
+		) {
 			fetchTracks(requestNumber, playlist.Id, tracks)
-			executeSearch(tracks.Tracks, term, requestNumber, results)
+			executeSearch(tracks.Tracks, term, requestNumber, results, textResults)
 			waitGroup.Done()
-		}(i, playlist.Id, tracksResults, searchTerm, &results)
+		}(i, playlist.Id, tracksResults, searchTerm, &results, &textResults)
 	}
 
 	waitGroup.Wait()
 
-	return results, nil
+	return results, textResults, nil
 }
 
 func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTracks) error {
@@ -209,7 +220,7 @@ func fetchTracks(requestNumber int, playlistId string, tracksResults *playlistTr
 	return nil
 }
 
-func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row) error {
+func executeSearch(tracks []track, term string, requestNumber int, results *[]table.Row, textResults *[]textTable.Row) error {
 	var offset = requestNumber * utils.TracksLimit
 
 	for i, item := range tracks {
@@ -227,6 +238,7 @@ func executeSearch(tracks []track, term string, requestNumber int, results *[]ta
 
 		if trackNameIncludesTerm || artistsIncludesTerm || trackNameTermScore > 0.8 || artistsTermScore > 0.8 {
 			*results = append(*results, table.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
+			*textResults = append(*textResults, textTable.Row{strconv.Itoa(offset + i + 1), item.Track.Name, formattedArtists})
 		}
 	}
 

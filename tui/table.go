@@ -2,23 +2,57 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/CarlosGMI/Playlistify/utils"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	textTable "github.com/jedib0t/go-pretty/v6/table"
 )
 
+type tableKeymap struct {
+	newSearch  key.Binding
+	switchMode key.Binding
+}
+type tableHelpOption struct {
+	character   string
+	description string
+	condition   bool
+}
 type TableModel struct {
 	table       table.Model
 	tableType   string
 	updatable   bool
 	previewText string
+	showHelp    bool
+	mode        string
+	textRows    []textTable.Row
 }
 type SelectedItemMsg struct {
 	Item string
 }
 
+const defaultTableHeight = 15
+
+var tableKeys = tableKeymap{
+	newSearch: key.NewBinding(
+		key.WithKeys("n"),
+		key.WithHelp("n", "New search"),
+	),
+	switchMode: key.NewBinding(
+		key.WithKeys("s"),
+		key.WithHelp("s", "Switch table mode"),
+	),
+}
+var tableHelpOptions = []tableHelpOption{
+	{"n", "new search", true},
+	{"s", "switch to text view", true},
+	{"s", "switch to table view", false},
+	{"q", "quit", true},
+	{"esc", "quit", true},
+}
 var TableTypes = []string{utils.PlaylistsTable, utils.SongsTable}
 var tableBaseStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240"))
 var columns = map[string][]table.Column{
@@ -34,12 +68,20 @@ var columns = map[string][]table.Column{
 	},
 }
 
-func CreateTable(tableType string, rows []table.Row, updatable bool, previewText string) TableModel {
+func CreateTable(tableType string, rows []table.Row, textRows []textTable.Row, updatable bool, previewText string) TableModel {
+	var tableHeight = defaultTableHeight
+	showHelp := tableType == TableTypes[1] && !updatable
+	tableHelpOptions[0].condition = tableType == TableTypes[1]
+
+	if len(rows) < tableHeight {
+		tableHeight = len(rows)
+	}
+
 	newTable := table.New(
 		table.WithColumns(columns[tableType]),
 		table.WithRows(rows),
-		table.WithFocused(updatable),
-		table.WithHeight(len(rows)),
+		table.WithFocused(true),
+		table.WithHeight(tableHeight),
 	)
 	styles := table.DefaultStyles()
 	styles.Header = styles.Header.
@@ -48,17 +90,11 @@ func CreateTable(tableType string, rows []table.Row, updatable bool, previewText
 		BorderBottom(true).
 		Bold(true)
 
-	if !updatable {
-		styles.Selected.Bold(false)
-		styles.Selected.UnsetForeground()
-	} else {
-		styles.Selected.Foreground(lipgloss.Color("#FFFFFF"))
-		styles.Selected.Background(lipgloss.Color(utils.ColorSpotifyGreenOpaque))
-	}
-
+	styles.Selected.Foreground(lipgloss.Color("#FFFFFF"))
+	styles.Selected.Background(lipgloss.Color(utils.ColorSpotifyGreenOpaque))
 	newTable.SetStyles(styles)
 
-	return TableModel{newTable, tableType, updatable, previewText}
+	return TableModel{newTable, tableType, updatable, previewText, showHelp, "table", textRows}
 }
 
 func (model TableModel) Init() tea.Cmd {
@@ -69,20 +105,40 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	if !model.updatable {
-		return model, tea.Quit
-	}
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return model, tea.Quit
 		case "enter":
-			searchModel := CreateSearchModel(true, model.table.SelectedRow()[0], "")
-			msg := SelectedItemMsg{model.table.SelectedRow()[0]}
+			if model.updatable {
+				searchModel := CreateSearchModel(true, model.table.SelectedRow()[0], "")
+				msg := SelectedItemMsg{model.table.SelectedRow()[0]}
 
-			return searchModel.Update(msg)
+				return searchModel.Update(msg)
+			} else {
+				return model, tea.Quit
+			}
+		}
+		switch {
+		case key.Matches(msg, tableKeys.newSearch):
+			if model.showHelp {
+				searchModel := CreateSearchModel(true, "", "")
+
+				return searchModel, searchModel.Init()
+			}
+		case key.Matches(msg, tableKeys.switchMode):
+			if !model.updatable {
+				if model.mode == utils.TableModeDefault {
+					model.mode = utils.TableModeText
+					tableHelpOptions[1].condition = false
+					tableHelpOptions[2].condition = true
+				} else {
+					model.mode = utils.TableModeDefault
+					tableHelpOptions[1].condition = true
+					tableHelpOptions[2].condition = false
+				}
+			}
 		}
 	}
 
@@ -93,9 +149,43 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (model TableModel) View() string {
-	if model.updatable && model.tableType == utils.PlaylistsTable {
+	if len(model.previewText) > 0 && model.tableType == utils.PlaylistsTable {
 		return fmt.Sprintf("\n%s\n\n%s\n\n", model.previewText, tableBaseStyle.Render(model.table.View()))
+	} else {
+		if model.mode == utils.TableModeDefault {
+			return fmt.Sprintf("\n%s\n\n%s", tableBaseStyle.Render(model.table.View()), model.helpView())
+		} else {
+			// fmt.Println("model.textView()")
+			// return "aa"
+			return fmt.Sprintf("\n%s\n\n%s", model.textView(), model.helpView())
+		}
+	}
+}
+
+func (model TableModel) helpView() string {
+	var optionsToShow []string
+
+	for i := range tableHelpOptions {
+		if tableHelpOptions[i].condition {
+			optionsToShow = append(optionsToShow, fmt.Sprintf("%s: %s", tableHelpOptions[i].character, tableHelpOptions[i].description))
+		}
 	}
 
-	return fmt.Sprintf("\n%s\n\n", tableBaseStyle.Render(model.table.View()))
+	return utils.HelpStyle(" " + strings.Join(optionsToShow, " • "))
+}
+
+func (model TableModel) textView() string {
+	var header textTable.Row
+	newTable := textTable.NewWriter()
+	currentColumns := columns[model.tableType]
+
+	for i := range currentColumns {
+		header = append(header, currentColumns[i].Title)
+	}
+
+	// newTable.SetOutputMirror(os.Stdout)
+	newTable.AppendHeader(header)
+	newTable.AppendRows(model.textRows)
+
+	return newTable.Render()
 }

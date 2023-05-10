@@ -34,8 +34,11 @@ const (
 	SuccessState = "success"
 	InputState   = "input"
 	// TUI Tables
-	PlaylistsTable = "PLAYLISTS"
-	SongsTable     = "SONGS"
+	PlaylistsTable   = "PLAYLISTS"
+	SongsTable       = "SONGS"
+	TableModeDefault = "table"
+	TableModeText    = "text"
 )
 
 var ErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSpotifyRed)).Render
+var HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render

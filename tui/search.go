@@ -99,7 +99,7 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case services.PlaylistsMsg:
 		model.state = "table"
-		playlists, err := services.PrintPlaylists()
+		playlists, textPlaylists, err := services.PrintPlaylists()
 
 		if err != nil {
 			model.state = utils.ErrorState
@@ -108,7 +108,7 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 
-		model.playlists = CreateTable(utils.PlaylistsTable, playlists, true, "Select the playlist to search:")
+		model.playlists = CreateTable(utils.PlaylistsTable, playlists, textPlaylists, true, "Select the playlist to search:")
 
 		return model.playlists.Update(msg)
 	case SelectedItemMsg:
@@ -119,7 +119,7 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case services.SearchResultsMsg:
 		model.state = "table"
-		model.results = CreateTable(utils.SongsTable, msg.Results, false, "")
+		model.results = CreateTable(utils.SongsTable, msg.Results, msg.TextResults, false, "")
 
 		return model.results.Update(msg)
 	case services.PlaylistsErrorMsg:
@@ -158,7 +158,6 @@ func (model SearchModel) View() string {
 
 func createSearchInput() textinput.Model {
 	input := textinput.New()
-	input.Placeholder = "Two Hearts"
 	input.Focus()
 	input.CharLimit = 156
 	input.Width = 20

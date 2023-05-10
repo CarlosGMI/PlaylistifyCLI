@@ -59,7 +59,7 @@ func (model *PlaylistsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, fetchPlaylists(), cmd)
 	case services.PlaylistsMsg, services.AuthErrorMsg:
 		model.state = "table"
-		playlists, err := services.PrintPlaylists()
+		playlists, textPlaylists, err := services.PrintPlaylists()
 
 		if err != nil {
 			model.state = utils.ErrorState
@@ -68,7 +68,7 @@ func (model *PlaylistsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 
-		model.results = CreateTable("PLAYLISTS", playlists, false, "")
+		model.results = CreateTable("PLAYLISTS", playlists, textPlaylists, false, "")
 
 		return model.results.Update(msg)
 	case services.PlaylistsErrorMsg:
