@@ -50,6 +50,12 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
+			if msg.String() == "q" && model.searchInput.Focused() {
+				model.searchInput, cmd = model.searchInput.Update(msg)
+
+				return model, cmd
+			}
+
 			return model, tea.Quit
 		case "enter":
 			model.searchTerm = model.searchInput.Value()
