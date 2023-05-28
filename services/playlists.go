@@ -66,8 +66,9 @@ type PlaylistsErrorMsg struct {
 
 type PlaylistsMsg string
 type SearchResultsMsg struct {
-	Results     []table.Row
-	TextResults []textTable.Row
+	PlaylistName string
+	Results      []table.Row
+	TextResults  []textTable.Row
 }
 
 func GetPlaylists() tea.Msg {
@@ -152,7 +153,7 @@ func SearchInPlaylist(playlistId string, searchTerm string) tea.Msg {
 
 	results, textResults, _ := getTracksAndSearch(playlist, strings.ToLower(searchTerm))
 
-	return SearchResultsMsg{results, textResults}
+	return SearchResultsMsg{playlist.Name, results, textResults}
 }
 
 func getPlaylistWithOffset(id string, playlist *playlist) error {

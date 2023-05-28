@@ -15,13 +15,17 @@ import (
 )
 
 type tableKeymap struct {
-	newSearch  key.Binding
-	switchMode key.Binding
+	newSearch           key.Binding
+	newSearchInPlaylist key.Binding
+	switchMode          key.Binding
 }
 type tableHelpOption struct {
 	character   string
 	description string
 	condition   bool
+}
+type tableContext struct {
+	selectedPlaylist string
 }
 type TableModel struct {
 	table       table.Model
@@ -31,6 +35,7 @@ type TableModel struct {
 	showHelp    bool
 	mode        string
 	viewport    viewport.Model
+	context     tableContext
 }
 type SelectedItemMsg struct {
 	Item string
@@ -43,6 +48,10 @@ var tableKeys = tableKeymap{
 		key.WithKeys("n"),
 		key.WithHelp("n", "New search"),
 	),
+	newSearchInPlaylist: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "New search in current playlist"),
+	),
 	switchMode: key.NewBinding(
 		key.WithKeys("s"),
 		key.WithHelp("s", "Switch table mode"),
@@ -50,6 +59,7 @@ var tableKeys = tableKeymap{
 }
 var tableHelpOptions = []tableHelpOption{
 	{"n", "new search", true},
+	{"p", "new search in current playlist", true},
 	{"s", "switch to text view", true},
 	{"s", "switch to table view", false},
 	{"q", "quit", true},
@@ -70,10 +80,20 @@ var columns = map[string][]table.Column{
 	},
 }
 
-func CreateTable(tableType string, rows []table.Row, textRows []textTable.Row, updatable bool, previewText string) TableModel {
+func CreateTable(
+	tableType string,
+	rows []table.Row,
+	textRows []textTable.Row,
+	updatable bool,
+	previewText string,
+	context tableContext,
+) TableModel {
 	var tableHeight = defaultTableHeight
-	showHelp := tableType == TableTypes[1] && !updatable
-	tableHelpOptions[0].condition = tableType == TableTypes[1]
+	isSearchTable := tableType == TableTypes[1]
+	isSongsTable := tableType == TableTypes[0]
+	showHelp := isSearchTable || (isSongsTable && !updatable)
+	tableHelpOptions[0].condition = isSearchTable
+	tableHelpOptions[1].condition = isSearchTable
 	terminalWidth, _, err := term.GetSize(0)
 
 	if err != nil {
@@ -111,6 +131,7 @@ func CreateTable(tableType string, rows []table.Row, textRows []textTable.Row, u
 		showHelp,
 		"table",
 		textTableViewport,
+		context,
 	}
 }
 
@@ -133,14 +154,18 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				msg := SelectedItemMsg{model.table.SelectedRow()[0]}
 
 				return searchModel.Update(msg)
-			} else {
-				return model, tea.Quit
 			}
 		}
 		switch {
 		case key.Matches(msg, tableKeys.newSearch):
 			if model.showHelp {
 				searchModel := CreateSearchModel(true, "", "")
+
+				return searchModel, searchModel.Init()
+			}
+		case key.Matches(msg, tableKeys.newSearchInPlaylist):
+			if model.showHelp {
+				searchModel := CreateSearchModel(false, model.context.selectedPlaylist, "")
 
 				return searchModel, searchModel.Init()
 			}
@@ -171,15 +196,23 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (model TableModel) View() string {
-	if len(model.previewText) > 0 && model.tableType == utils.PlaylistsTable {
-		return fmt.Sprintf("\n%s\n\n%s\n\n", model.previewText, tableBaseStyle.Render(model.table.View()))
-	} else {
-		if model.mode == utils.TableModeDefault {
-			return fmt.Sprintf("\n%s\n\n%s", tableBaseStyle.Render(model.table.View()), model.helpView())
-		} else {
-			return fmt.Sprintf("\n%s\n\n%s", model.viewport.View(), model.helpView())
-		}
+	var content string
+
+	if len(model.previewText) > 0 {
+		content += fmt.Sprintf("%s\n\n", model.previewText)
 	}
+
+	if model.mode == utils.TableModeDefault {
+		content += fmt.Sprintf("%s\n\n", tableBaseStyle.Render(model.table.View()))
+	} else {
+		content += fmt.Sprintf("%s\n\n", model.viewport.View())
+	}
+
+	if model.showHelp {
+		content += model.helpView()
+	}
+
+	return fmt.Sprintf("\n%s\n\n", content)
 }
 
 func (model TableModel) helpView() string {

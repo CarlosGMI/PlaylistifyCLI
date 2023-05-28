@@ -68,7 +68,14 @@ func (model *PlaylistsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 
-		model.results = CreateTable("PLAYLISTS", playlists, textPlaylists, false, "")
+		model.results = CreateTable(
+			utils.PlaylistsTable,
+			playlists,
+			textPlaylists,
+			false,
+			"",
+			tableContext{},
+		)
 
 		return model.results.Update(msg)
 	case services.PlaylistsErrorMsg:

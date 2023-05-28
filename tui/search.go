@@ -100,8 +100,12 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.loaderText = "Fetching playlists..."
 			cmds = append(cmds, fetchPlaylists(), cmd)
 		} else {
-			model.loaderText = utils.SearchingText
-			cmds = append(cmds, executeSearch(model.selectedPlaylist, model.searchTerm), cmd)
+			if len(model.searchTerm) > 0 {
+				model.loaderText = utils.SearchingText
+				cmds = append(cmds, executeSearch(model.selectedPlaylist, model.searchTerm), cmd)
+			} else {
+				return model.Update(SelectedItemMsg{model.selectedPlaylist})
+			}
 		}
 	case services.PlaylistsMsg:
 		model.state = "table"
@@ -114,7 +118,14 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		}
 
-		model.playlists = CreateTable(utils.PlaylistsTable, playlists, textPlaylists, true, "Select the playlist to search:")
+		model.playlists = CreateTable(
+			utils.PlaylistsTable,
+			playlists,
+			textPlaylists,
+			true,
+			"Select the playlist to search:",
+			tableContext{},
+		)
 
 		return model.playlists.Update(msg)
 	case SelectedItemMsg:
@@ -124,8 +135,16 @@ func (model SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.searchInput, cmd = model.searchInput.Update(msg)
 		cmds = append(cmds, cmd)
 	case services.SearchResultsMsg:
+		previewText := fmt.Sprintf("\nSelected playlist: %s", msg.PlaylistName)
 		model.state = "table"
-		model.results = CreateTable(utils.SongsTable, msg.Results, msg.TextResults, false, "")
+		model.results = CreateTable(
+			utils.SongsTable,
+			msg.Results,
+			msg.TextResults,
+			false,
+			previewText,
+			tableContext{model.selectedPlaylist},
+		)
 
 		return model.results.Update(msg)
 	case services.PlaylistsErrorMsg:
