@@ -155,6 +155,18 @@ func (model TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return searchModel.Update(msg)
 			}
+		case "up":
+			if model.table.Cursor() == 0 {
+				model.table.GotoBottom()
+
+				return model, nil
+			}
+		case "down":
+			if model.table.Cursor() == len(model.table.Rows())-1 {
+				model.table.GotoTop()
+
+				return model, nil
+			}
 		}
 		switch {
 		case key.Matches(msg, tableKeys.newSearch):
